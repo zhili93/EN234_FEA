@@ -13,7 +13,7 @@
 %    The parameters are # of coords, # of DOF, and an optional integer identifier
        NODES
 %    The parameters are # of coords, # of DOF, and an optional integer identifier
-       PARAMETERS, 2, 2, 1
+       PARAMETERS, 2, 2, 1006
 %      Specify which nodal DOF are displacements.  In the example, DOF 1 is the x displacement, 2 is the y displacement, 3 is the z displacement
        DISPLACEMENT DOF, 1, 2
 %    Enter x,y,z coords of nodes.   The node number is optional, and is ignored in the code.
@@ -787,7 +787,7 @@
         END NODESET
 
 
-       END ELEMENTSET
+      
 
 %       The DEGREE OF FREEDOM key assigns values to nodal DOFs
 %       The syntax is node set name, DOF number, VALUE/HISTORY/SUBROUTINE, value/history name/subroutine parameter list name.
@@ -797,7 +797,6 @@
            right, 1, HISTORY, dof_history
            base, 2, VALUE, 0.d0
         END DEGREES OF FREEDOM
-
 
 
    END BOUNDARY CONDITIONS
@@ -813,7 +812,7 @@
 
 %   The CHECK STIFFNESS key tests the element subroutine to ensure that
 %   the residual force vector is consistent with the stiffness
-%       CHECK STIFFNESS, 1006
+%    CHECK STIFFNESS, 1006
 
 
 
