@@ -14,7 +14,7 @@
 %    The parameters are # of coords, # of DOF, and an optional integer identifier
        NODES
 %    The parameters are # of coords, # of DOF, and an optional integer identifier
-       PARAMETERS, 2, 2, 1
+       PARAMETERS, 2, 2, 1006
 %      Specify which nodal DOF are displacements.  In the example, DOF 1 is the x displacement, 2 is the y displacement, 3 is the z displacement
        DISPLACEMENT DOF, 1, 2
 %    Enter x,y,z coords of nodes.   The node number is optional, and is ignored in the code.
@@ -2631,7 +2631,7 @@
 %     The parameters are no. nodes on the element, total no. state variables, integer identifier
 
       ELEMENTS
-        PARAMETERS, 6, 0, 101
+        PARAMETERS, 6, 0, 1006
 %       Define element properties - the values are passed to user subroutine elstif in the order they are listed here
 %       For the example provided, the params are Youngs Modulus, Poissons ratio
         PROPERTIES
@@ -3890,7 +3890,7 @@
 1246,  659,  616,  641, 2594, 2572, 2577
         END CONNECTIVITY
 
-        PARAMETERS, 8, 0, 101
+        PARAMETERS, 8, 0, 1006
 %       Define element properties - the values are passed to user subroutine elstif in the order they are listed here
 %       For the example provided, the params are Youngs Modulus, Poissons ratio
         PROPERTIES
@@ -3924,7 +3924,7 @@
 %       The HISTORY key defines a time history that can be applied to DOFs or distributed loads
         HISTORY, dof_history
           0.d0, 0.d0                  % Each line gives a time value and then a function value
-         10.d0, 0.001d0
+         10.d0, 0.01d0
         END HISTORY
 
         HISTORY, dload_history
@@ -3977,7 +3977,7 @@
 
 %  Print the initial mesh to a file named initial_mesh.dat
 
-   PRINT INITIAL MESH, Output_files\initial_mesh.dat
+   PRINT INITIAL MESH, Output_files/initial_mesh.dat
 
 
 
@@ -4031,7 +4031,7 @@
 %         The projected states are controlled by the user - see subroutine elstat in file usrelem.f90
 %         Also (for this example file) subroutine state_linelast_3dbasic in file el_linelast_3Dbasic.f90
 %         In this example the states are the stresses sxx,syy,szz,sxy,sxz,syz
-         PRINT STATE, Output_files\contourplots.dat
+         PRINT STATE, Output_files/contourplotscrack.dat
             DEGREES OF FREEDOM
             FIELD VARIABLES, S11,S22,S33,S12
             DISPLACED MESH
@@ -4039,11 +4039,12 @@
          END PRINT STATE
 
 
-%          USER PRINT FILES
-%          List file names to contain the output. Fortran unit numbers are provided to each file in the user subroutine
-%            filename1.dat
-%            filename2.dat
-%          END USER PRINT FILES
+         USER PRINT FILES
+   %       List file names to contain the output. Fortran unit numbers are provided to each file in the user subroutine
+   %         filename1.dat
+   %         filename2.dat
+           Jintegral.dat
+         END USER PRINT FILES
 %          USER PRINT PARAMETERS
 %            list of parameters to be passed to the subroutine
 %             1.d0, 6.d0
