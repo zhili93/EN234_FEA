@@ -260,7 +260,7 @@ subroutine compute_J_integral(J_integral_value)
 !    real (prec)  ::  x(2,length_coord_array/2)         ! Re-shaped coordinate array x(i,a) is ith coord of ath node
     real (prec)  :: E, xnu, D44, D11, D12              ! Material properties
     real (prec)  ::  dudx2(1,2), wpotential,dqdx(2,1),xpoint(2), rpoint
-    real (prec)  ::  temp1(2,1),temp2(1,1), stressmatrix(2,2), strainmatrix(2,2)
+    real (prec)  ::  temp(1,1), stressmatrix(2,2), strainmatrix(2,2)
 
     integer      :: status
     integer      :: iof
@@ -336,7 +336,7 @@ subroutine compute_J_integral(J_integral_value)
     D(1,1) = d11
     D(2,2) = d11
     D(3,3) = d44
- !  write(IOW,*) D
+
      !     --  Loop over integration points
     do kint = 1, n_points
         call calculate_shapefunctions(xi(1:2,kint),n_nodes,N,dNdxi)
@@ -348,10 +348,10 @@ subroutine compute_J_integral(J_integral_value)
         B(2,2:2*n_nodes:2) = dNdx(1:n_nodes,2)
         B(3,1:2*n_nodes-1:2) = dNdx(1:n_nodes,2)
         B(3,2:2*n_nodes:2) = dNdx(1:n_nodes,1)
+
         strain = matmul(B,dof_total+dof_increment)
-!        strain = matmul(B,dof_total)
         stress = matmul(D,strain)
-!       write(IOW,*) strain, stress
+
 
         stressmatrix(1,1)=stress(1)
         stressmatrix(2,2)=stress(2)
@@ -363,6 +363,7 @@ subroutine compute_J_integral(J_integral_value)
         strainmatrix(1,2)=strain(3)
         strainmatrix(2,1)=strain(3)
 
+!======calculate W =sijεij /2=========
         wpotential=0
         do i=1,2
 
@@ -371,9 +372,9 @@ subroutine compute_J_integral(J_integral_value)
            end do
 
         end do
-  !      write(IOW,*)  wpotential
 
-        xpoint = 0.d0
+!======calculate the intergral in the given integration point=====
+        xpoint = 0.d0  !coordinate of integration point in global coords
         dudx2= 0.d0
 
         do i=1, n_nodes
@@ -383,13 +384,13 @@ subroutine compute_J_integral(J_integral_value)
         dudx2(1,2)=dudx2(1,2)+dNdx(i,2)*(dof_increment(2*i)+dof_total(2*i))
 
         end do
-        rpoint=SQRT(xpoint(1)*xpoint(1)+xpoint(2)*xpoint(2))
+        rpoint=SQRT(xpoint(1)*xpoint(1)+xpoint(2)*xpoint(2))  ! calculate r
         dqdx(1,1)=-xpoint(1)/(rpoint*0.0006)
         dqdx(2,1)=-xpoint(2)/(rpoint*0.0006)
 
-        temp1=matmul(stressmatrix,dqdx)
-        temp2=matmul(dudx2,temp1)
-        J_integral_value=J_integral_value+(temp2(1,1)-wpotential*dqdx(2,1))*w(kint)*determinant
+
+        temp=matmul(dudx2,matmul(stressmatrix,dqdx))
+        J_integral_value=J_integral_value+(temp(1,1)-wpotential*dqdx(2,1))*w(kint)*determinant
 
     end do
 
