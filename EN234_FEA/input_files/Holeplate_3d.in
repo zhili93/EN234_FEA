@@ -15,7 +15,7 @@
 
        NODES
 %    The parameters are # of coords, # of DOF, and an optional integer identifier
-       PARAMETERS, 3, 3, 1
+       PARAMETERS, 3, 3, 1001
 %      Specify which nodal DOF are displacements.  In the example, DOF 1 is the x displacement, 2 is the y displacement, 3 is the z displacement
        DISPLACEMENT DOF, 1, 2, 3
 %    Enter x,y,z coords of nodes.   The node number is optional, and is ignored in the code.
@@ -4135,7 +4135,7 @@ END NODES
 %       Define element properties - the values are passed to user subroutine elstif in the order they are listed here
 %       For the example provided, the params are Youngs Modulus, Poissons ratio 
         PROPERTIES
-         100.d0, 0.3d0
+         100.d0, 0.4999999d0
         END PROPERTIES
 %     Define mass density (for explicity dynamics only)
 %       DENSITY, 10.d0
@@ -7230,7 +7230,7 @@ END MESH
 %       The HISTORY key defines a time history that can be applied to DOFs or distributed loads
         HISTORY, dof_history
           0.d0, 0.d0
-         10.d0, 0.1d0
+         10.d0, 0.01d0
         END HISTORY
 
         HISTORY, dload_history
@@ -7348,7 +7348,7 @@ END MESH
 
 %   The CHECK STIFFNESS key tests the element subroutine to ensure that
 %   the residual force vector is consistent with the stiffness
-%       CHECK STIFFNESS, 1001
+%       CHECK STIFFNESS, 1002
 
 %    STOP
 
@@ -7367,7 +7367,7 @@ END MESH
           INITIAL TIME STEP, 1.d0
           MAX TIME STEP, 1.d0
           MIN TIME STEP, 0.001d0
-          MAX NUMBER OF STEPS, 1
+          MAX NUMBER OF STEPS, 3
           STOP TIME, 10.d0
           STATE PRINT STEP INTERVAL, 1
           USER PRINT STEP INTERVAL, 1
@@ -7390,7 +7390,7 @@ END MESH
 
 
 
-         PRINT STATE, Output_files/contourplots.dat
+         PRINT STATE, Output_files/contourplots3dm2.dat
 %            DEGREES OF FREEDOM
             FIELD VARIABLES, S11,S22,S33,S12,S13,S23
             DISPLACED MESH
@@ -7400,9 +7400,9 @@ END MESH
 %       The lines below are just examples - they will do nothing for this simulation (no code exists to interpret them)
 %          USER PRINT FILES
 %          List file names to contain the output. Fortran unit numbers are provided to each file in the user subroutine
-%            filename1.dat
+%           filename1.dat
 %            filename2.dat
-%          END USER PRINT FILES
+%         END USER PRINT FILES
 %          USER PRINT PARAMETERS
 %            list of parameters to be passed to the subroutine
 %             1.d0, 6.d0
