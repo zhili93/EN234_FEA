@@ -360,8 +360,8 @@ subroutine compute_J_integral(J_integral_value)
 
         strainmatrix(1,1)=strain(1)
         strainmatrix(2,2)=strain(2)
-        strainmatrix(1,2)=strain(3)
-        strainmatrix(2,1)=strain(3)
+        strainmatrix(1,2)=strain(3)/2.d0
+        strainmatrix(2,1)=strain(3)/2.d0
 
 !======calculate W =sijεij /2=========
         wpotential=0
