@@ -35,6 +35,108 @@ module Element_Utilities
 
 contains
 
+     subroutine calculate_stress_D(strain,element_properties,stress,D)
+        use Types
+        use ParamIO
+        implicit none
+
+        real (prec), intent(in)    :: strain(:)
+        real (prec), intent(in)    :: element_properties(:)
+        real (prec), intent(out)   :: stress(:)
+        real (prec), intent(out)   :: D(:,:)
+!==============local variables================
+        integer      :: i,j
+        real (prec)  :: sigma_0,e_0,n,k
+        real (prec)  :: ekk,ee,sigma_e,E_t,E_s,strainmag
+        real (prec)  :: estrain(6)
+        real (prec)  :: temp1(6,6),temp2(6,6),e_dyadic_e(6,6)
+
+       !read material parameters
+        sigma_0=element_properties(1)
+        e_0=element_properties(2)
+        n=element_properties(3)
+        k=element_properties(4)
+ !=================calculate stress===============
+   strainmag = dot_product(strain,strain)
+ if(strainmag==0.d0) then
+
+        stress=0.d0
+ !       write(IOW,*) stress
+ else
+        !calculate deviatoric strain
+        estrain=strain
+        ekk=strain(1)+strain(2)+strain(3)
+        estrain(1)=estrain(1)-ekk/3.d0
+        estrain(2)=estrain(2)-ekk/3.d0
+        estrain(3)=estrain(3)-ekk/3.d0
+        estrain(4)=estrain(4)/2.d0
+        estrain(5)=estrain(5)/2.d0
+        estrain(6)=estrain(6)/2.d0
+        !calculate von-misers effective strain
+        ee=0.d0
+        ee=estrain(1)*estrain(1)+estrain(2)*estrain(2)+estrain(3)*estrain(3) &
+        +2.d0*(estrain(4)*estrain(4)+estrain(5)*estrain(5)+estrain(6)*estrain(6))
+        ee=dsqrt(ee*2.d0/3.d0)
+        !calculate σe,Es =σe /ee ,  Et = dσe /dee
+        if(ee<e_0) then
+        sigma_e=sigma_0*(dsqrt((1.d0+n*n)/((n-1.d0)*(n-1.d0))-(n/(n-1.d0)-ee/e_0)*(n/(n-1.d0)-ee/e_0))-1.d0/(n-1.d0))
+        else
+        !sigma_e=sigma_0*((ee/e_0)**(1/n))
+        sigma_e=sigma_0*exp(log(ee/e_0)/n)
+        endif
+     !calculate σij
+     stress=0.d0
+     stress(1:6)=2.d0*sigma_e*estrain(1:6)/(3.d0*ee)
+     stress(1:3)=stress(1:3)+k*ekk
+ endif
+ !===============calculate tangent stiffness matrix [D]====================
+
+ temp1=0.d0
+ temp1(1,1)=2
+ temp1(2,2)=2
+ temp1(3,3)=2
+ temp1(4,4)=1
+ temp1(5,5)=1
+ temp1(6,6)=1
+ temp2=0.d0
+ temp2(1:3,1:3)=1
+ !write(IOW,*) temp1, temp2
+
+ if(strain(1)==0.d0 .and.strain(2)==0.d0 .and.strain(3)==0.d0 .and. &
+   strain(4)==0.d0 .and.strain(5)==0.d0 .and.strain(6)==0.d0 ) then
+
+   ee=0.d0
+   E_s=(sigma_0/e_0)*(n/(n-1.d0)-ee/e_0)/sqrt((1.d0+n*n)/((n-1.d0)*(n-1.d0))-(n/(n-1.d0)-ee/e_0)*(n/(n-1.d0)-ee/e_0))
+   D(1:6,1:6)=(E_s/3.d0)*temp1(1:6,1:6)+(k-2.d0*E_s/9.d0)*temp2(1:6,1:6)
+
+ else
+     E_s=sigma_e/ee
+     if(ee<e_0) then
+     E_t=(sigma_0/e_0)*(n/(n-1.d0)-ee/e_0)/sqrt((1.d0+n*n)/((n-1.d0)*(n-1.d0))-(n/(n-1.d0)-ee/e_0)*(n/(n-1.d0)-ee/e_0))
+     else
+     !E_t=(sigma_0/e_0)*((ee/e_0)**(1/n-1))/n
+     E_t=(sigma_0/e_0)*exp(log(ee/e_0)*(1/n-1.d0))/n
+     endif
+     e_dyadic_e = spread(estrain,dim=2,ncopies=6)*spread(estrain,dim=1,ncopies=6)
+     D(1:6,1:6)=(4.d0*(E_t-E_s)/(9.d0*ee*ee))*e_dyadic_e(1:6,1:6)+(E_s/3.d0)*temp1(1:6,1:6)+(k-2.d0*E_s/9.d0)*temp2(1:6,1:6)
+
+ endif
+
+ !  write(IOW,*) D
+
+    end subroutine calculate_stress_D
+
+
+
+
+
+
+
+
+
+
+
+
     function cross_product(a,b)           ! Compute cross product of two 3 dimensional vectors
 
         use Types
