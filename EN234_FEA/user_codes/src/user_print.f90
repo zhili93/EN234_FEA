@@ -60,9 +60,9 @@ subroutine user_print(n_steps)
       write(user_print_units(1),'(7(1x,D12.5))') TIME+DTIME,vol_averaged_strain(1:6)
     else
  !     vol_averaged_state_variables(1:3) = vol_averaged_state_variables(1:3) + vol_averaged_state_variables(7)
-   write(user_print_units(1),'(13(1x,D12.5))') TIME+DTIME,vol_averaged_strain(1:6),vol_averaged_state_variables(1:6)
-  !  write(user_print_units(1),'(13(1x,D12.5))') vol_averaged_state_variables(1)
- !  write(user_print_units(1),'(13(1x,D12.5))') vol_averaged_strain(1)
+   !write(user_print_units(1),'(13(1x,D12.5))') TIME+DTIME,vol_averaged_strain(1:6),vol_averaged_state_variables(1:6)
+    write(user_print_units(1),'(13(1x,D12.5))') vol_averaged_state_variables(1)
+   !write(user_print_units(1),'(13(1x,D12.5))') vol_averaged_strain(1)
    endif
 
 

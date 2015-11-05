@@ -284,25 +284,26 @@ contains
          end if
     end subroutine eigenvecs33
 
-    function principalvals33(symvec)     ! Compute principal stresses or strains from a stress or strain vector
-
+    subroutine calculate_principalvals(symvec,principalstress)     ! Compute principal stresses or strains from a stress or strain vector
         use Types
+        use ParamIO
         implicit none
 
         real (prec), intent(in)  ::  symvec(6)   ! symvec contains (A(1,1),A(2,2),A(3,3),A(1,2),A(1,3),A(2,3))
-        real (prec) ::  principalvals33(3)
+        real (prec), intent(out) :: principalstress(3)
+       ! real (prec) ::  principalvals33(3)
 
         real (prec) :: B(6)
         real (prec) :: p1,p2
         real (prec) :: p,q,r
         real (prec) :: phi
 
-        principalvals33 = 0.d0
+        principalstress = 0.d0
         p1 = symvec(4)*symvec(4)+symvec(5)*symvec(5)+symvec(6)*symvec(6)
         if (p1 == 0.d0) then    ! Vector is diagonal - sort the eigenvalues
-           principalvals33(1) = maxval(symvec(1:3))
-           principalvals33(3) = minval(symvec(1:3))
-           principalvals33(2) = sum(symvec(1:3)) - principalvals33(1) - principalvals33(2)
+           principalstress(1) = maxval(symvec(1:3))
+           principalstress(3) = minval(symvec(1:3))
+           principalstress(2) = sum(symvec(1:3)) - principalstress(1) - principalstress(2)
         else
           q = sum(symvec(1:3))/3.d0
           p2 = (symvec(1) - q)*(symvec(1)-q) + (symvec(2) - q)*(symvec(2) - q) + (symvec(3) - q)*(symvec(3) - q) + 2.d0 * p1
@@ -325,12 +326,12 @@ contains
            end if
 
            ! Principal values ordered from largest to smallest.
-           principalvals33(1) = q + 2.d0 * p * cos(phi)
-           principalvals33(3) = q + 2.d0 * p * cos(phi + (2.d0*PI_D/3.d0))
-           principalvals33(2) = 3.d0 * q - principalvals33(1) - principalvals33(3)
+           principalstress(1) = q + 2.d0 * p * cos(phi)
+           principalstress(3) = q + 2.d0 * p * cos(phi + (2.d0*PI_D/3.d0))
+           principalstress(2) = 3.d0 * q - principalstress(1) - principalstress(3)
         endif
 
-     end function principalvals33
+     end subroutine calculate_principalvals
 
      function rotatesymvec(symvec,R)     ! Apply a rigid rotation to a symmetric 3x3 stress or strain vector
 

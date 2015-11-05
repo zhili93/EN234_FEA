@@ -133,7 +133,7 @@ subroutine check_stiffness(element_flag)
 1000                format( ' Row ',i4,' node ',i4,' DOF ',i4,' Stiffness ',d15.5,' Numerical deriv ',d15.5 )
                 end do
             end do
-            !element_dof_increment(icount) = element_dof_increment(icount) - 1.D-07
+  !          element_dof_increment(icount) = element_dof_increment(icount) - 1.D-07
           element_dof_increment(icount) = element_dof_increment(icount) - 1.d-12
         end do
     end do

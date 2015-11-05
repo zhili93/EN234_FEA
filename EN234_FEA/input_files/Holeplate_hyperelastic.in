@@ -15,7 +15,7 @@
 
        NODES
 %    The parameters are # of coords, # of DOF, and an optional integer identifier
-       PARAMETERS, 3, 3, 1
+       PARAMETERS, 3, 3, 3001
 %      Specify which nodal DOF are displacements.  In the example, DOF 1 is the x displacement, 2 is the y displacement, 3 is the z displacement
        DISPLACEMENT DOF, 1, 2, 3
 %    Enter x,y,z coords of nodes.   The node number is optional, and is ignored in the code.
@@ -4131,7 +4131,7 @@ END NODES
 %     The parameters are no. nodes on the element, total no. state variables, integer identifier  
       ELEMENTS
 
-       PARAMETERS, 8, 0, 1002
+       PARAMETERS, 8, 0, 3001
 %       Define element properties - the values are passed to user subroutine elstif in the order they are listed here
 %       For the example provided, the params are Youngs Modulus, Poissons ratio and thermal expansion coeft
         PROPERTIES
@@ -7322,7 +7322,7 @@ END MESH
 
 %   The CHECK STIFFNESS key tests the element subroutine to ensure that
 %   the residual force vector is consistent with the stiffness
-%       CHECK STIFFNESS, 1001
+     CHECK STIFFNESS, 3001
 
 %    STOP
 
@@ -7364,7 +7364,7 @@ END MESH
 
 
 
-         PRINT STATE, Output_files\contourplots.dat
+         PRINT STATE, Output_files/holeplate_hyperelastic.dat
 %            DEGREES OF FREEDOM
             FIELD VARIABLES, S11,S22,S33,S12,S13,S23
             DISPLACED MESH
