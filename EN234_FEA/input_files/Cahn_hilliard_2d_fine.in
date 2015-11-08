@@ -13,7 +13,7 @@
 %    The parameters are # of coords, # of DOF, and an optional integer identifier
        NODES
 %    The parameters are # of coords, # of DOF, and an optional integer identifier
-       PARAMETERS, 2, 2, 1
+       PARAMETERS, 2, 2, 1008
 %    Enter x,y,z coords of nodes.   The node number is optional, and is ignored in the code.
          COORDINATES
        1,         -0.5,         -0.5
@@ -4656,7 +4656,7 @@
 %     The parameters are no. nodes on the element, total no. state variables, integer identifier
 
       ELEMENTS
-        PARAMETERS, 4, 0, 600
+        PARAMETERS, 4, 0, 1008
 %       Define element properties - the values are passed to user subroutine elstif in the order they are listed here
 %       For the example provided, the params are diffusion coefficient, kappa, theta
         PROPERTIES
@@ -9177,7 +9177,7 @@
 
 %   The CHECK STIFFNESS key tests the element subroutine to ensure that
 %   the residual force vector is consistent with the stiffness
-%       CHECK STIFFNESS, 600
+       CHECK STIFFNESS, 1008
 %       STOP
 
 
@@ -9192,7 +9192,7 @@
           INITIAL TIME STEP, 1.d-03    
           MAX TIME STEP, 1.d-03
           MIN TIME STEP, 1.d-05
-          MAX NUMBER OF STEPS, 50
+          MAX NUMBER OF STEPS, 10
           STOP TIME, 10.d0
           STATE PRINT STEP INTERVAL, 1
           USER PRINT STEP INTERVAL, 100
@@ -9211,7 +9211,7 @@
          SOLVER, DIRECT, NONLINEAR, 1.d-05,15, UNSYMMETRIC
 
 
-         PRINT STATE, Output_files\contourplots.dat
+         PRINT STATE, Output_files/contourplots.dat
             DEGREES OF FREEDOM
          END PRINT STATE
 

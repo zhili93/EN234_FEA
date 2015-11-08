@@ -97,6 +97,14 @@ else if ( element_identifier == 3001) then           ! Stub for a nonlinear 3d e
     n_state_variables, initial_state_variables, &                                                ! Input variables
     updated_state_variables,element_stiffness,element_residual, fail)      ! Output variables
 
+   else if ( element_identifier ==1008) then           ! Stub for a 2d element
+
+        call timedependent_2D(lmn, element_identifier, n_nodes, node_property_list, &           ! Input variables
+    n_properties, element_properties, element_coords, length_coord_array, &                      ! Input variables
+    dof_increment, dof_total, length_dof_array, &                                                ! Input variables
+    n_state_variables, initial_state_variables, &                                                ! Input variables
+    updated_state_variables,element_stiffness,element_residual, fail)      ! Output variables
+
   
     else
         write (IOW, 99001) element_identifier
