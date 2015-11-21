@@ -180,6 +180,15 @@ subroutine user_element_dynamic(lmn, element_identifier, n_nodes, node_property_
             updated_state_variables,element_residual,element_deleted)                                      ! Output variables
 
 
+     else if ( element_identifier ==4001) then               ! Stub for a new element
+
+        call explicit_dynamics_3d(lmn, element_identifier, n_nodes, node_property_list, &           ! Input variables
+            n_properties, element_properties,element_coords, length_coord_array, &                         ! Input variables
+            dof_increment, dof_total, length_dof_array,  &                                                 ! Input variables
+            n_state_variables, initial_state_variables, &                                                  ! Input variables
+            updated_state_variables,element_residual,element_deleted)                                      ! Output variables
+
+
     else if ( element_identifier ==0) then               ! Stub for a new element
   
         call new_user_element_dynamic(lmn, element_identifier, n_nodes, node_property_list, &           ! Input variables
@@ -266,6 +275,14 @@ subroutine user_element_fieldvariables(lmn, element_identifier, n_nodes, node_pr
 
         else if ( element_identifier == 3001 ) then
             call fieldvars_finitedeformation_3dbasic(lmn, element_identifier, n_nodes, node_property_list, &           ! Input variables
+                n_properties, element_properties,element_coords, length_coord_array, &                                   ! Input variables
+                dof_increment, dof_total, length_dof_array, &                                                            ! Input variables
+                n_state_variables, initial_state_variables,updated_state_variables, &                                    ! Input variables
+                n_field_variables,field_variable_names, &                                                                ! Field variable definition
+                nodal_fieldvariables)      ! Output variables
+
+        else if ( element_identifier == 4001 ) then
+            call fieldvars_explicit_dynamics_3d(lmn, element_identifier, n_nodes, node_property_list, &           ! Input variables
                 n_properties, element_properties,element_coords, length_coord_array, &                                   ! Input variables
                 dof_increment, dof_total, length_dof_array, &                                                            ! Input variables
                 n_state_variables, initial_state_variables,updated_state_variables, &                                    ! Input variables

@@ -243,11 +243,11 @@ subroutine el_finitedeformation_3dbasic(lmn, element_identifier, n_nodes, node_p
  !       strain = matmul(B,dof_total)
  !       dstrain = matmul(B,dof_increment)
 
-        element_residual(1:3*n_nodes) = element_residual(1:3*n_nodes) - matmul(transpose(B),stress)*w(kint)
+        element_residual(1:3*n_nodes) = element_residual(1:3*n_nodes) - matmul(transpose(B),stress)*w(kint)*determinant
 
         element_stiffness(1:3*n_nodes,1:3*n_nodes) = element_stiffness(1:3*n_nodes,1:3*n_nodes) &
- + matmul(transpose(B(1:6,1:3*n_nodes)),matmul(D(1:6,1:6),matmul(G(1:6,1:9),B_star(1:9,1:3*n_nodes))))*w(kint) &
-             -Sigma(1:3*n_nodes,1:3*n_nodes)*w(kint)
+ + matmul(transpose(B(1:6,1:3*n_nodes)),matmul(D(1:6,1:6),matmul(G(1:6,1:9),B_star(1:9,1:3*n_nodes))))*w(kint)*determinant &
+             -Sigma(1:3*n_nodes,1:3*n_nodes)*w(kint)*determinant
 
     end do
 

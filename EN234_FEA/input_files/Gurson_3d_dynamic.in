@@ -13,7 +13,7 @@
 %    The parameters are # of coords, # of DOF, and an optional integer identifier
        NODES
 %    The parameters are # of coords, # of DOF, and an optional integer identifier
-       PARAMETERS, 3, 3, 1
+       PARAMETERS, 3, 3, 4001
 %      Specify which nodal DOF are displacements.  In the example, DOF 1 is the x displacement, 2 is the y displacement, 3 is the z displacement
        DISPLACEMENT DOF, 1, 2, 3
 %    Enter x,y,z coords of nodes.   The node number is optional, and is ignored in the code.
@@ -37,13 +37,13 @@
 %     The parameters are no. nodes on the element, total no. state variables, integer identifier
 
       ELEMENTS
-        PARAMETERS, 8, 80, 3001
+        PARAMETERS, 8, 80, 4001
 %       Define element properties - the values are passed to user subroutine elstif in the order they are listed here
         PROPERTIES
-         1000.d0, 0.3d0   % E, nu
-         0.8d0, 10.01d0, 5.d0  % Y, edot0, m
+         1000.d0, 0.33d0   % E, nu
+         0.8d0, 0.01d0, 5.d0  % Y, edot0, m
          1.25d0, 1.d0, 1.25d0  % q1, q2, q3
-         0.05d0, 0.1d0, 0.05d0  % fn, sn, en
+         0.05d0, 0.05d0, 0.05d0  % fn, en,sn
          0.15d0, 0.25d0  % fc, ff
         END PROPERTIES
 %     Define mass density (for explicity dynamics only)
@@ -116,9 +116,9 @@
 %        All parameters are required
 
           TIME STEP, 0.01
-          NUMBER OF STEPS, 200
-          STATE PRINT STEPS, 10
-          USER PRINT STEPS, 210
+          NUMBER OF STEPS, 10
+          STATE PRINT STEPS, 1
+          USER PRINT STEPS, 1
 
 
 %      This prints the DOF values and projected nodal state for all solid elements to a tecplot readable file
@@ -127,7 +127,7 @@
 %         The projected states are controlled by the user - see subroutine elstat in file usrelem.f90
 %         Also (for this example file) subroutine state_linelast_3dbasic in file el_linelast_3Dbasic.f90
 %         In this example the states are the stresses sxx,syy,szz,sxy,sxz,syz
-         PRINT STATE, Output_files\contourplots.dat
+         PRINT STATE, Output_files/dynamic_void.dat
             DEGREES OF FREEDOM
             FIELD VARIABLES, S11,S22,S33,S12,S13,S23,Vf
             DISPLACED MESH

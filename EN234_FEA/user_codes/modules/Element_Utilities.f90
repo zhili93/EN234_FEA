@@ -35,6 +35,377 @@ module Element_Utilities
 
 contains
 
+    subroutine gurson (element_properties,n_properties,n_state_variables,initial_state_variables, &
+                   updated_state_variables,dstrain,dRot,stress1)
+
+        use Types
+        use ParamIO
+        use Globals, only: TIME,DTIME
+
+        implicit none
+
+        integer, intent( in )     :: n_properties
+        integer, intent( in )     :: n_state_variables
+        real (prec), intent( in ) :: element_properties(n_properties)
+        real (prec), intent( in ) :: initial_state_variables(8)
+        real (prec), intent( in ) :: dstrain(3,3)
+        real (prec), intent( in ) :: dRot(3,3)
+        real (prec), intent( out ):: stress1(6)
+        real (prec), intent( out ):: updated_state_variables(8)
+
+
+
+        integer      :: ncount
+        real (prec)  :: stress0(6),ematrix,dematrix,vf
+        real (prec)  :: E,nv,Y,epsilon_0,m,q1,q2,q3,f_n,epsilon_n,s_n,f_c,f_f,f_f_bar
+        real (prec)  :: f_star
+        real (prec)  :: p_star,stress0_m(3,3),estress0_m(3,3),I(3,3),destrain(3,3)
+        real (prec)  :: S_star(3,3),phi0,phi,sigma_estar
+        real (prec)  :: stress1_m(3,3)
+        real (prec)  :: deriva(2,2),incre(2,1),resid(2,1),target(2,1)
+        real (prec)  :: d_e,d_epsilonv,f1,f2,df1de,df1depsilonv,df2de,df2depsilonv,dt,sigma_star
+        real (prec)  :: deriva_i(2,2),deriva_det
+
+       ! initial state variables
+        stress0(1:6)=initial_state_variables(1:6)
+        ematrix=initial_state_variables(7)
+        vf=initial_state_variables(8)
+       ! material properties
+        E=element_properties(1)
+        nv=element_properties(2)
+        Y=element_properties(3)
+        epsilon_0=element_properties(4)
+        m=element_properties(5)
+        q1=element_properties(6)
+        q2=element_properties(7)
+        q3=element_properties(8)
+        f_n=element_properties(9)
+        epsilon_n =element_properties(10)
+        s_n=element_properties(11)
+        f_c=element_properties(12)
+        f_f=element_properties(13)
+
+        p_star=sum(stress0(1:3))/3.d0+E*(dstrain(1,1)+dstrain(2,2)+dstrain(3,3))/(3.d0*(1.d0-2.d0*nv))
+
+        I=0.d0
+        I(1,1)=1.d0
+        I(2,2)=1.d0
+        I(3,3)=1.d0
+
+        stress0_m=0.d0
+        stress0_m(1,1)=stress0(1)
+        stress0_m(2,2)=stress0(2)
+        stress0_m(3,3)=stress0(3)
+        stress0_m(1,2)=stress0(4)
+        stress0_m(1,3)=stress0(5)
+        stress0_m(2,3)=stress0(6)
+        stress0_m(2,1)=stress0_m(1,2)
+        stress0_m(3,1)=stress0_m(1,3)
+        stress0_m(3,2)=stress0_m(2,3)
+
+        estress0_m=stress0_m-(sum(stress0(1:3))/3.d0)*I
+        destrain=dstrain-((dstrain(1,1)+dstrain(2,2)+dstrain(3,3))/3.d0)*I
+        S_star=(E/(1.d0+nv))*destrain+matmul(dRot,matmul(estress0_m,transpose(dRot)))
+       !========update state variables=========
+ !===============calculate f_star===============================
+        if(vf<f_c) then
+        f_star=vf
+        else if(vf>f_c.AND.vf<f_f) then
+        f_f_bar=(q1+sqrt(q1*q1-q3))/q3
+        f_star=f_c+((f_f_bar-f_c)*(vf-f_c))/(f_f-f_c)
+        else if(vf>f_f) then
+        f_f_bar=(q1+sqrt(q1*q1-q3))/q3
+        f_star=f_f_bar
+        end if
+
+        sigma_estar=sqrt((3.d0*(S_star(1,1)**2+S_star(2,2)**2+S_star(3,3)**2+ &
+        2.d0*(S_star(1,2)**2+S_star(2,3)**2+S_star(1,3)**2)))/2.d0)
+        phi0=(sigma_estar/Y)**2+2.d0*q1*f_star*cosh(3.d0*q2*p_star/(2.d0*Y))-(1+q3*f_star*f_star)
+
+        if(phi0<0.0000000000001d0) then
+        stress1_m=S_star+p_star*I
+        stress1(1)=stress1_m(1,1)
+        stress1(2)=stress1_m(2,2)
+        stress1(3)=stress1_m(3,3)
+        stress1(4)=stress1_m(1,2)
+        stress1(5)=stress1_m(1,3)
+        stress1(6)=stress1_m(2,3)
+
+       ! write(IOW,*) dematrix, ematrix
+
+        updated_state_variables(1:6)=stress1(1:6)
+        updated_state_variables(7)=ematrix
+        updated_state_variables(8)=vf
+        else
+       !  write(IOW,*) 'wrong'
+        phi=sqrt((sigma_estar/Y)**2+2.d0*q1*f_star*cosh(3.d0*q2*p_star/(2.d0*Y))-(1+q3*f_star*f_star))
+        !==========newton raphson========
+        deriva=0.d0
+        incre(1,1)=1.d0
+        incre(2,1)=1.d0
+        resid=0.d0
+        target=0.d0
+        ncount=1
+        dt=DTIME
+        sigma_star=sigma_estar
+
+        do while(abs(incre(1,1))+abs(incre(2,1))>0.000000001.AND.ncount<30)
+
+        d_e=target(1,1)
+        d_epsilonv=target(2,1)
+
+       f1 = (d_e*(- (sigma_star - (3.d0*E*d_e)/(2.d0*nv + 2.d0))**2/((Y**4)*((f_star**2)*q3 - &
+       (sigma_star - (3.d0*E*d_e)/(2.d0*nv + 2.d0))**2/(Y**2) - 2.d0*f_star*q1*cosh((q2*(3.d0*p_star +&
+        (3.d0*E*d_epsilonv)/(6.d0*nv - 3.d0)))/(2.d0*Y)) + 1.d0)) - &
+        ((f_star**2)*(q1**2)*(q2**2)*sinh((q2*(3.d0*p_star + (3.d0*E*d_epsilonv)/(6.d0*nv -&
+         3.d0)))/(2.d0*Y))**2)/(2.d0*(Y**2)*((f_star**2)*q3 - (sigma_star - (3.d0*E*d_e)/(2.d0*nv +&
+          2.d0))**2/(Y**2) - 2.d0*f_star*q1*cosh((q2*(3.d0*p_star + (3.d0*E*d_epsilonv)/(6.d0*nv - &
+          3.d0)))/(2.d0*Y)) + 1.d0)))**(0.5d0))/(dt*epsilon_0) - ((((sigma_star - &
+          (3.d0*E*d_e)/(2.d0*nv + 2.d0))**2.d0/(Y**2 )- (f_star**2)*q3 + &
+          2.d0*f_star*q1*cosh((q2*(3.d0*p_star + (3.d0*E*d_epsilonv)/(6.d0*nv - 3.d0)))/(2.d0*Y)) -&
+           1.d0)**(0.5d0))**m*(sigma_star - (3.d0*E*d_e)/(2.d0*nv + 2.d0)))/((Y**2)*(- (f_star**2)*q3 +& !???m blan
+            (sigma_star - (3.d0*E*d_e)/(2.d0*nv + 2.d0))**2/(Y**2) + 2.d0*f_star*q1*cosh((q2*(3.d0*p_star &
+            + (3.d0*E*d_epsilonv)/(6.d0*nv - 3.d0)))/(2.d0*Y)) - 1.d0)**(0.5d0))
+
+
+       f2 =(d_epsilonv*(- (sigma_star - (3.d0*E*d_e)/(2.d0*nv + 2.d0))**2/((Y**4)*((f_star**2)*q3 &
+        - (sigma_star - (3.d0*E*d_e)/(2.d0*nv + 2.d0))**2/(Y**2) - 2.d0*f_star*q1*cosh((q2*(3.d0*p_star &
+         + (3.d0*E*d_epsilonv)/(6.d0*nv - 3.d0)))/(2.d0*Y)) + 1.d0)) - &
+         ((f_star**2)*(q1**2)*(q2**2)*sinh((q2*(3.d0*p_star + (3.d0*E*d_epsilonv)/(6.d0*nv - &
+         3.d0)))/(2.d0*Y))**2)/(2.d0*(Y**2)*((f_star**2)*q3 - (sigma_star - (3.d0*E*d_e)/(2.d0*nv + &
+         2.d0))**2/(Y**2) - 2.d0*f_star*q1*cosh((q2*(3.d0*p_star + (3.d0*E*d_epsilonv)/(6.d0*nv -&
+          3.d0)))/(2.d0*Y)) + 1.d0)))**(0.5d0))/(dt*epsilon_0) - (3.d0*f_star*q1*q2*sinh((q2*(3.d0*p_star &
+          + (3.d0*E*d_epsilonv)/(6.d0*nv - 3.d0)))/(2.d0*Y))*(((sigma_star - &
+          (3.d0*E*d_e)/(2.d0*nv + 2.d0))**2/(Y**2) &
+          - (f_star**2)*q3 + 2.d0*f_star*q1*cosh((q2*(3.d0*p_star + &
+          (3.d0*E*d_epsilonv)/(6.d0*nv - 3.d0)))/(2.d0*Y)) &
+          - 1.d0)**(0.5d0))**m)/(2.d0*Y*(- (f_star**2)*q3 + (sigma_star - &
+          (3.d0*E*d_e)/(2.d0*nv + 2.d0))**2/(Y**2) + &
+          2.d0*f_star*q1*cosh((q2*(3.d0*p_star + (3.d0*E*d_epsilonv)/(6.d0*nv &
+          - 3.d0)))/(2.d0*Y)) - 1.d0)**(0.5d0))
+
+        df1de =(- (sigma_star - (3.d0*E*d_e)/(2.d0*nv + 2.d0))**2/((Y**4)*((f_star**2)*q3 -&
+         (sigma_star - (3.d0*E*d_e)/(2.d0*nv + 2.d0))**2/(Y**2) - &
+         2.d0*f_star*q1*cosh((q2*(3.d0*p_star + (3.d0*E*d_epsilonv)/(6.d0*nv - &
+         3.d0)))/(2.d0*Y)) + 1.d0)) - ((f_star**2)*(q1**2)*(q2**2)*sinh((q2*(3.d0*p_star + &
+         (3.d0*E*d_epsilonv)/(6.d0*nv - 3.d0)))/(2.d0*Y))**2)/(2.d0*(Y**2)*((f_star**2)*q3 &
+         - (sigma_star - (3.d0*E*d_e)/(2.d0*nv + 2.d0))**2/(Y**2) - 2.d0*f_star*q1*cosh((q2*(3.d0*p_star &
+         + (3.d0*E*d_epsilonv)/(6.d0*nv - 3.d0)))/(2.d0*Y)) + 1.d0)))**(0.5d0)/(dt*epsilon_0) &
+         + (d_e*((6.d0*E*(sigma_star - (3.d0*E*d_e)/(2.d0*nv + 2.d0)))/((Y**4)*(2.d0*nv + 2.d0)*((f_star**2)*q3 &
+         - (sigma_star - (3.d0*E*d_e)/(2.d0*nv + 2.d0))**2/(Y**2) - &
+         2.d0*f_star*q1*cosh((q2*(3.d0*p_star + (3.d0*E*d_epsilonv)/(6.d0*nv - 3.d0)))/(2.d0*Y)) + 1.d0)) &
+         + (6.d0*E*(sigma_star - (3.d0*E*d_e)/(2.d0*nv + 2.d0))**3)/((Y**6)*(2.d0*nv + 2.d0)*((f_star**2)*q3 &
+         - (sigma_star - (3.d0*E*d_e)/(2.d0*nv + 2.d0))**2/(Y**2) - 2.d0*f_star*q1*cosh((q2*(3.d0*p_star &
+         + (3.d0*E*d_epsilonv)/(6.d0*nv - 3.d0)))/(2.d0*Y)) + 1.d0)**2) + &
+         (3.d0*E*(f_star**2)*(q1**2)*(q2**2)*(sinh((q2*(3.d0*p_star + (3.d0*E*d_epsilonv)/(6.d0*nv &
+         - 3.d0)))/(2.d0*Y))**2)*(sigma_star - (3.d0*E*d_e)/(2.d0*nv + &  ! add a blancket? sinh
+         2.d0)))/((Y**4)*(2.d0*nv + 2.d0)*((f_star**2)*q3 - (sigma_star - &
+         (3.d0*E*d_e)/(2.d0*nv + 2.d0))**2/(Y**2) - 2.d0*f_star*q1*cosh((q2*(3.d0*p_star + &
+         (3.d0*E*d_epsilonv)/(6.d0*nv - 3.d0)))/(2.d0*Y)) + 1.d0)**2)))/(2.d0*dt*epsilon_0*(- (sigma_star &
+         - (3.d0*E*d_e)/(2.d0*nv + 2.d0))**2/((Y**4)*((f_star**2)*q3 - (sigma_star - &
+         (3.d0*E*d_e)/(2.d0*nv + 2.d0))**2/(Y**2) - 2.d0*f_star*q1*cosh((q2*(3.d0*p_star +&
+          (3.d0*E*d_epsilonv)/(6.d0*nv - 3.d0)))/(2.d0*Y)) + 1.d0)) - &
+          ((f_star**2)*(q1**2)*(q2**2)*sinh((q2*(3.d0*p_star + (3.d0*E*d_epsilonv)/(6.d0*nv - &
+          3.d0)))/(2.d0*Y))**2)/(2.d0*(Y**2)*((f_star**2)*q3 - (sigma_star - &
+          (3.d0*E*d_e)/(2.d0*nv + 2.d0))**2/(Y**2) - 2.d0*f_star*q1*cosh((q2*(3.d0*p_star + &
+          (3.d0*E*d_epsilonv)/(6.d0*nv - 3.d0)))/(2.d0*Y)) + 1.d0)))**(0.5d0)) + (3.d0*E*(((sigma_star &
+          - (3.d0*E*d_e)/(2.d0*nv + 2.d0))**2/(Y**2) - (f_star**2)*q3 + 2.d0*f_star*q1*cosh((q2*(3.d0*p_star &
+          + (3.d0*E*d_epsilonv)/(6.d0*nv - 3.d0)))/(2.d0*Y)) - 1.d0)**(0.5d0))**m)/((Y**2)*(2.d0*nv +&
+           2.d0)*((sigma_star - (3.d0*E*d_e)/(2.d0*nv + 2.d0))**2/(Y**2) - (f_star**2)*q3 + &
+           2.d0*f_star*q1*cosh((q2*(3.d0*p_star + (3.d0*E*d_epsilonv)/(6.d0*nv - 3.d0)))/(2.d0*Y)) - &
+           1.d0)**(0.5d0)) - (3.d0*E*(((sigma_star - (3.d0*E*d_e)/(2.d0*nv + 2.d0))**2/(Y**2) - &
+           (f_star**2)*q3 + 2.d0*f_star*q1*cosh((q2*(3.d0*p_star + (3.d0*E*d_epsilonv)/(6.d0*nv - &
+           3.d0)))/(2.d0*Y)) - 1.d0)**(0.5d0))**m*(sigma_star - (3.d0*E*d_e)/(2.d0*nv + &
+           2.d0))**2)/((Y**4)*(2.d0*nv + 2.d0)*((sigma_star - (3.d0*E*d_e)/(2.d0*nv + 2.d0))**2/(Y**2) -&
+            (f_star**2)*q3 + 2.d0*f_star*q1*cosh((q2*(3.d0*p_star + (3.d0*E*d_epsilonv)/(6.d0*nv -&
+             3.d0)))/(2.d0*Y)) - 1.d0)**(1.5d0)) - (3.d0*E*m*(((sigma_star - (3.d0*E*d_e)/(2.d0*nv + &
+             2.d0))**2/(Y**2) - (f_star**2)*q3 + 2.d0*f_star*q1*cosh((q2*(3.d0*p_star + &
+             (3.d0*E*d_epsilonv)/(6.d0*nv - 3.d0)))/(2.d0*Y)) - 1.d0)**(0.5d0))**(m - 1.d0)*(sigma_star &
+             - (3.d0*E*d_e)/(2.d0*nv + 2.d0))**2)/((Y**4)*(2.d0*nv + 2.d0)*((f_star**2)*q3 - &
+             (sigma_star - (3.d0*E*d_e)/(2.d0*nv + 2.d0))**2/(Y**2) - 2.d0*f_star*q1*cosh((q2*(3.d0*p_star + &
+             (3.d0*E*d_epsilonv)/(6.d0*nv - 3.d0)))/(2.d0*Y)) + 1.d0))
+
+        df1depsilonv=(3.d0*E*f_star*q1*q2*sinh((q2*(3.d0*p_star + (3.d0*E*d_epsilonv)/(6.d0*nv -&
+         3.d0)))/(2.d0*Y))*(((sigma_star - (3.d0*E*d_e)/(2.d0*nv + 2.d0))**2/(Y**2) - (f_star**2)*q3 +&
+          2.d0*f_star*q1*cosh((q2*(3.d0*p_star + (3.d0*E*d_epsilonv)/(6.d0*nv - 3.d0)))/(2.d0*Y)) -&
+           1.d0)**(0.5d0))**m*(sigma_star - (3.d0*E*d_e)/(2.d0*nv + 2.d0)))/(2.d0*(Y**3)*(6.d0*nv - &
+           3.d0)*((sigma_star - (3.d0*E*d_e)/(2.d0*nv + 2.d0))**2/(Y**2) - (f_star**2)*q3 + &
+           2.d0*f_star*q1*cosh((q2*(3.d0*p_star + (3.d0*E*d_epsilonv)/(6.d0*nv - 3.d0)))/(2.d0*Y)) - &
+           1.d0)**(1.5d0)) - (d_e*((3.d0*E*(f_star**3)*(q1**3)*(q2**3)*sinh((q2*(3.d0*p_star + &
+           (3.d0*E*d_epsilonv)/(6.d0*nv - 3.d0)))/(2.d0*Y))**3)/(2.d0*(Y**3)*(6.d0*nv - &
+           3.d0)*((f_star**2)*q3 - (sigma_star - (3.d0*E*d_e)/(2.d0*nv + 2.d0))**2/(Y**2) - &
+            2.d0*f_star*q1*cosh((q2*(3.d0*p_star + (3.d0*E*d_epsilonv)/(6.d0*nv - 3.d0)))/(2.d0*Y)) + &
+            1.d0)**2) + (3.d0*E*f_star*q1*q2*sinh((q2*(3.d0*p_star + (3.d0*E*d_epsilonv)/(6.d0*nv -&
+             3.d0)))/(2.d0*Y))*(sigma_star - (3.d0*E*d_e)/(2.d0*nv + 2.d0))**2)/((Y**5)*(6.d0*nv - &
+             3.d0)*((f_star**2)*q3 - (sigma_star - (3.d0*E*d_e)/(2.d0*nv + 2.d0))**2/(Y**2) - &
+             2.d0*f_star*q1*cosh((q2*(3.d0*p_star + (3.d0*E*d_epsilonv)/(6.d0*nv - 3.d0)))/(2.d0*Y)) &
+             + 1.d0)**2) + (3.d0*E*(f_star**2)*(q1**2)*(q2**3)*cosh((q2*(3.d0*p_star + &
+             (3.d0*E*d_epsilonv)/(6.d0*nv - 3.d0)))/(2.d0*Y))*sinh((q2*(3.d0*p_star + &
+             (3.d0*E*d_epsilonv)/(6.d0*nv - 3.d0)))/(2.d0*Y)))/(2.d0*(Y**3)*(6.d0*nv - &
+             3.d0)*((f_star**2)*q3 - (sigma_star - (3.d0*E*d_e)/(2.d0*nv + 2.d0))**2/(Y**2) - &
+             2.d0*f_star*q1*cosh((q2*(3.d0*p_star + (3.d0*E*d_epsilonv)/(6.d0*nv - &
+             3.d0)))/(2.d0*Y)) + 1.d0))))/(2.d0*dt*epsilon_0*(- (sigma_star - &
+             (3.d0*E*d_e)/(2.d0*nv + 2.d0))**2/((Y**4)*((f_star**2)*q3 - (sigma_star - &
+             (3.d0*E*d_e)/(2.d0*nv + 2.d0))**2/(Y**2) - 2.d0*f_star*q1*cosh((q2*(3.d0*p_star + &
+             (3.d0*E*d_epsilonv)/(6.d0*nv - 3.d0)))/(2.d0*Y)) + 1.d0)) - &
+             ((f_star**2)*(q1**2)*(q2**2)*sinh((q2*(3.d0*p_star + (3.d0*E*d_epsilonv)/(6.d0*nv - &
+             3.d0)))/(2.d0*Y))**2)/(2.d0*(Y**2)*((f_star**2)*q3 - (sigma_star - (3.d0*E*d_e)/(2.d0*nv +&
+              2.d0))**2/(Y**2) - 2.d0*f_star*q1*cosh((q2*(3.d0*p_star + (3.d0*E*d_epsilonv)/(6.d0*nv - &
+              3.d0)))/(2.d0*Y)) + 1.d0)))**(0.5d0)) + (3.d0*E*f_star*m*q1*q2*sinh((q2*(3.d0*p_star + &
+              (3.d0*E*d_epsilonv)/(6.d0*nv - 3.d0)))/(2.d0*Y))*(((sigma_star - (3.d0*E*d_e)/(2.d0*nv + &
+              2.d0))**2/(Y**2) - (f_star**2)*q3 + 2.d0*f_star*q1*cosh((q2*(3.d0*p_star + &
+              (3.d0*E*d_epsilonv)/(6.d0*nv - 3.d0)))/(2.d0*Y)) - 1.d0)**(0.5d0))**(m - 1.d0)*(sigma_star -&
+               (3.d0*E*d_e)/(2.d0*nv + 2.d0)))/(2.d0*(Y**3)*(6.d0*nv - 3.d0)*((f_star**2)*q3 - &
+               (sigma_star - (3.d0*E*d_e)/(2.d0*nv + 2.d0))**2/(Y**2) - 2.d0*f_star*q1*cosh((q2*(3.d0*p_star &
+                + (3.d0*E*d_epsilonv)/(6.d0*nv - 3.d0)))/(2.d0*Y)) + 1.d0))
+
+          df2de =(d_epsilonv*((6.d0*E*(sigma_star - (3.d0*E*d_e)/(2.d0*nv + 2)))/((Y**4)*(2.d0*nv +&
+           2.d0)*((f_star**2)*q3 - (sigma_star - (3.d0*E*d_e)/(2.d0*nv + 2.d0))**2/(Y**2) - &
+           2.d0*f_star*q1*cosh((q2*(3.d0*p_star + (3.d0*E*d_epsilonv)/(6.d0*nv - 3.d0)))/(2.d0*Y)) + &
+           1.d0)) + (6.d0*E*(sigma_star - (3.d0*E*d_e)/(2.d0*nv + 2.d0))**3)/((Y**6)*(2.d0*nv + &
+           2.d0)*((f_star**2)*q3 - (sigma_star - (3.d0*E*d_e)/(2.d0*nv + 2.d0))**2/(Y**2) - &
+           2.d0*f_star*q1*cosh((q2*(3.d0*p_star + (3.d0*E*d_epsilonv)/(6.d0*nv - 3.d0)))/(2.d0*Y)) + &
+           1.d0)**2) + (3.d0*E*(f_star**2)*(q1**2)*(q2**2)*(sinh((q2*(3.d0*p_star + &
+           (3.d0*E*d_epsilonv)/(6.d0*nv - 3.d0)))/(2.d0*Y))**2)*(sigma_star - & ! blan
+           (3.d0*E*d_e)/(2.d0*nv + 2.d0)))/((Y**4)*(2.d0*nv + 2.d0)*((f_star**2)*q3 - &
+           (sigma_star - (3.d0*E*d_e)/(2.d0*nv + 2.d0))**2/(Y**2) - 2.d0*f_star*q1*cosh((q2*(3.d0*p_star &
+           + (3.d0*E*d_epsilonv)/(6.d0*nv - 3.d0)))/(2.d0*Y)) + 1.d0)**2)))/(2.d0*dt*epsilon_0*(- &
+           (sigma_star - (3.d0*E*d_e)/(2.d0*nv + 2.d0))**2/((Y**4)*((f_star**2)*q3 - (sigma_star - &
+           (3.d0*E*d_e)/(2.d0*nv + 2.d0))**2/(Y**2) - 2.d0*f_star*q1*cosh((q2*(3.d0*p_star + &
+           (3.d0*E*d_epsilonv)/(6.d0*nv - 3.d0)))/(2.d0*Y)) + 1.d0)) -&
+            ((f_star**2)*(q1**2)*(q2**2)*sinh((q2*(3.d0*p_star + (3.d0*E*d_epsilonv)/(6.d0*nv - &
+            3.d0)))/(2.d0*Y))**2)/(2.d0*(Y**2)*((f_star**2)*q3 - (sigma_star - (3.d0*E*d_e)/(2.d0*nv + &
+            2.d0))**2/(Y**2) - 2.d0*f_star*q1*cosh((q2*(3.d0*p_star + (3.d0*E*d_epsilonv)/(6.d0*nv - &
+            3.d0)))/(2.d0*Y)) + 1.d0)))**(0.5d0)) - (9.d0*E*f_star*q1*q2*sinh((q2*(3.d0*p_star + &
+            (3.d0*E*d_epsilonv)/(6.d0*nv - 3.d0)))/(2.d0*Y))*(((sigma_star - (3.d0*E*d_e)/(2.d0*nv + &
+            2.d0))**2/(Y**2) - (f_star**2)*q3 + 2.d0*f_star*q1*cosh((q2*(3.d0*p_star + &
+            (3.d0*E*d_epsilonv)/(6.d0*nv - 3.d0)))/(2.d0*Y)) - 1.d0)**(0.5d0))**m*(sigma_star - &
+            (3.d0*E*d_e)/(2.d0*nv + 2.d0)))/(2.d0*(Y**3)*(2.d0*nv + 2.d0)*(- (f_star**2)*q3 + &
+            (sigma_star - (3.d0*E*d_e)/(2.d0*nv + 2.d0))**2/(Y**2) + 2.d0*f_star*q1*cosh((q2*(3.d0*p_star &
+            + (3.d0*E*d_epsilonv)/(6.d0*nv - 3.d0)))/(2.d0*Y)) - 1.d0)**(1.5d0)) - &
+            (9.d0*E*f_star*m*q1*q2*sinh((q2*(3.d0*p_star + (3.d0*E*d_epsilonv)/(6.d0*nv - &
+            3.d0)))/(2.d0*Y))*(((sigma_star - (3.d0*E*d_e)/(2.d0*nv + 2.d0))**2/(Y**2) - &
+            (f_star**2)*q3 + 2.d0*f_star*q1*cosh((q2*(3.d0*p_star + (3.d0*E*d_epsilonv)/(6.d0*nv -&
+             3.d0)))/(2.d0*Y)) - 1.d0)**(0.5d0))**(m - 1.d0)*(sigma_star - &
+             (3.d0*E*d_e)/(2.d0*nv + 2.d0)))/(2.d0*(Y**3)*(2.d0*nv + 2.d0)*((f_star**2)*q3 - &
+             (sigma_star - (3.d0*E*d_e)/(2.d0*nv + 2.d0))**2/(Y**2) - &
+             2.d0*f_star*q1*cosh((q2*(3.d0*p_star + (3.d0*E*d_epsilonv)/(6.d0*nv - 3.d0)))/(2.d0*Y)) + 1.d0))
+
+
+          df2depsilonv =(- (sigma_star - (3.d0*E*d_e)/(2.d0*nv + 2.d0))**2/((Y**4)*((f_star**2)*q3 -&
+           (sigma_star - (3.d0*E*d_e)/(2.d0*nv + 2.d0))**2/(Y**2) - 2.d0*f_star*q1*cosh((q2*(3.d0*p_star + &
+           (3.d0*E*d_epsilonv)/(6.d0*nv - 3.d0)))/(2.d0*Y)) + 1.d0)) - &
+           ((f_star**2)*(q1**2)*(q2**2)*sinh((q2*(3.d0*p_star + (3.d0*E*d_epsilonv)/(6.d0*nv - &
+           3.d0)))/(2.d0*Y))**2)/(2.d0*(Y**2)*((f_star**2)*q3 - (sigma_star - (3.d0*E*d_e)/(2.d0*nv + &
+           2.d0))**2/(Y**2) - 2.d0*f_star*q1*cosh((q2*(3.d0*p_star + &
+           (3.d0*E*d_epsilonv)/(6.d0*nv - 3.d0)))/(2.d0*Y)) + 1.d0)))**(0.5d0)/(dt*epsilon_0) - &
+           (d_epsilonv*((3.d0*E*(f_star**3)*(q1**3)*(q2**3)*sinh((q2*(3.d0*p_star + &
+            (3.d0*E*d_epsilonv)/(6.d0*nv - 3.d0)))/(2.d0*Y))**3)/(2.d0*(Y**3)*(6.d0*nv - &
+            3.d0)*((f_star**2)*q3 - (sigma_star - (3.d0*E*d_e)/(2.d0*nv + 2.d0))**2/(Y**2) - &
+            2.d0*f_star*q1*cosh((q2*(3.d0*p_star + (3.d0*E*d_epsilonv)/(6.d0*nv - &
+            3.d0)))/(2.d0*Y)) + 1.d0)**2) + (3.d0*E*f_star*q1*q2*sinh((q2*(3.d0*p_star + &
+            (3.d0*E*d_epsilonv)/(6.d0*nv - 3.d0)))/(2.d0*Y))*(sigma_star - (3.d0*E*d_e)/(2.d0*nv + &
+            2.d0))**2)/((Y**5)*(6.d0*nv - 3.d0)*((f_star**2)*q3 - (sigma_star - (3.d0*E*d_e)/(2.d0*nv + &
+            2.d0))**2/(Y**2) - 2.d0*f_star*q1*cosh((q2*(3.d0*p_star + (3.d0*E*d_epsilonv)/(6.d0*nv - &
+            3.d0)))/(2.d0*Y)) + 1.d0)**2) + (3.d0*E*(f_star**2)*(q1**2)*(q2**3)*cosh((q2*(3.d0*p_star + &
+            (3.d0*E*d_epsilonv)/(6.d0*nv - 3.d0)))/(2.d0*Y))*sinh((q2*(3.d0*p_star +&
+             (3.d0*E*d_epsilonv)/(6.d0*nv - 3.d0)))/(2.d0*Y)))/(2.d0*(Y**3)*(6.d0*nv - &
+             3.d0)*((f_star**2)*q3 - (sigma_star - (3.d0*E*d_e)/(2.d0*nv + 2.d0))**2/(Y**2) -&
+              2.d0*f_star*q1*cosh((q2*(3.d0*p_star + (3.d0*E*d_epsilonv)/(6.d0*nv - 3.d0)))/(2.d0*Y)) + &
+              1.d0))))/(2.d0*dt*epsilon_0*(- (sigma_star - (3.d0*E*d_e)/(2.d0*nv + &
+              2.d0))**2/((Y**4)*((f_star**2)*q3 - (sigma_star - (3.d0*E*d_e)/(2.d0*nv +&
+               2.d0))**2/(Y**2) - 2.d0*f_star*q1*cosh((q2*(3.d0*p_star + (3.d0*E*d_epsilonv)/(6.d0*nv -&
+                3.d0)))/(2.d0*Y)) + 1.d0)) - ((f_star**2)*(q1**2)*(q2**2)*sinh((q2*(3.d0*p_star + &
+                (3.d0*E*d_epsilonv)/(6.d0*nv - 3.d0)))/(2.d0*Y))**2)/(2.d0*(Y**2)*((f_star**2)*q3 - &
+                (sigma_star - (3.d0*E*d_e)/(2.d0*nv + 2.d0))**2/(Y**2) - &
+                2.d0*f_star*q1*cosh((q2*(3.d0*p_star + (3.d0*E*d_epsilonv)/(6.d0*nv - 3.d0)))/(2.d0*Y)) &
+                 + 1.d0)))**(0.5d0)) - (9.d0*E*f_star*q1*(q2**2)*cosh((q2*(3.d0*p_star + &
+                 (3.d0*E*d_epsilonv)/(6.d0*nv - 3.d0)))/(2.d0*Y))*(((sigma_star - (3.d0*E*d_e)/(2.d0*nv + &
+                 2.d0))**2/(Y**2) - (f_star**2)*q3 + 2.d0*f_star*q1*cosh((q2*(3.d0*p_star + &
+              (3.d0*E*d_epsilonv)/(6.d0*nv - 3.d0)))/(2.d0*Y)) - 1.d0)**(0.5d0))**m)/(4.d0*(Y**2)*(6.d0*nv &
+              - 3.d0)*((sigma_star - (3.d0*E*d_e)/(2.d0*nv + 2.d0))**2/(Y**2) - (f_star**2)*q3 + &
+              2.d0*f_star*q1*cosh((q2*(3.d0*p_star + (3.d0*E*d_epsilonv)/(6.d0*nv - 3.d0)))/(2.d0*Y)) - &
+              1.d0)**(0.5d0)) + (9.d0*E*(f_star**2)*(q1**2)*(q2**2)*sinh((q2*(3.d0*p_star +&
+               (3.d0*E*d_epsilonv)/(6.d0*nv - 3.d0)))/(2.d0*Y))**2*(((sigma_star - (3.d0*E*d_e)/(2.d0*nv +&
+                2.d0))**2/(Y**2) - (f_star**2)*q3 + 2.d0*f_star*q1*cosh((q2*(3.d0*p_star + &
+                (3.d0*E*d_epsilonv)/(6.d0*nv - 3.d0)))/(2.d0*Y)) - 1.d0)**(0.5d0))**m)/(4.d0*(Y**2)*(6.d0*nv &
+                - 3.d0)*((sigma_star - (3.d0*E*d_e)/(2.d0*nv + 2.d0))**2/(Y**2) - (f_star**2)*q3 + &
+                2.d0*f_star*q1*cosh((q2*(3.d0*p_star + (3.d0*E*d_epsilonv)/(6.d0*nv - 3.d0)))/(2.d0*Y)) - &
+                1.d0)**(1.5d0)) + (9.d0*E*(f_star**2)*m*(q1**2)*(q2**2)*sinh((q2*(3.d0*p_star + &
+                (3.d0*E*d_epsilonv)/(6.d0*nv - 3.d0)))/(2.d0*Y))**2*(((sigma_star - (3.d0*E*d_e)/(2.d0*nv + &
+                2.d0))**2/(Y**2) - (f_star**2)*q3 + 2.d0*f_star*q1*cosh((q2*(3.d0*p_star + &
+                (3.d0*E*d_epsilonv)/(6.d0*nv - 3.d0)))/(2.d0*Y)) - 1.d0)**(0.5d0))**(m - &
+                1.d0))/(4.d0*(Y**2)*(6.d0*nv - 3.d0)*((f_star**2)*q3 - (sigma_star - (3.d0*E*d_e)/(2.d0*nv + &
+                2.d0))**2/(Y**2) - 2.d0*f_star*q1*cosh((q2*(3.d0*p_star + &
+                (3.d0*E*d_epsilonv)/(6.d0*nv - 3.d0)))/(2.d0*Y)) + 1.d0))
+
+
+          deriva(1,1)=df1de
+          deriva(1,2)=df1depsilonv
+          deriva(2,1)=df2de
+          deriva(2,2)=df2depsilonv
+
+          resid(1,1)=-f1
+          resid(2,1)=-f2
+
+         call invert_small(deriva,deriva_i,deriva_det)
+         incre=matmul(deriva_i,resid)
+         target=target+incre
+         ncount=ncount+1
+
+        enddo
+
+        d_e=target(1,1)
+        d_epsilonv=target(2,1)
+!================update state variables===========================
+       stress1_m=S_star-((d_e*E*3.d0)/(2.d0*(1.d0+nv)*sigma_estar))*S_star+(p_star- &
+       (E*d_epsilonv)/(3.d0*(1-2.d0*nv)))*I
+
+        stress1(1)=stress1_m(1,1)
+        stress1(2)=stress1_m(2,2)
+        stress1(3)=stress1_m(3,3)
+        stress1(4)=stress1_m(1,2)
+        stress1(5)=stress1_m(1,3)
+        stress1(6)=stress1_m(2,3)
+
+        dematrix =(((sigma_star - (3*E*d_e)/(2*nv + 2))**2/(Y**2*(- f_star**2*q3 + &
+        (sigma_star - (3*E*d_e)/(2*nv + 2))**2/Y**2 + 2*f_star*q1*cosh((q2*(3*p_star +&
+         (3*E*d_epsilonv)/(6*nv - 3)))/(2*Y)) - 1)**(1/2)) + (f_star*q1*q2*sinh((q2*(3*p_star &
+         + (3*E*d_epsilonv)/(6*nv - 3)))/(2*Y))*(p_star + (E*d_epsilonv)/(6*nv - 3)))/(2*Y*(-&
+          f_star**2*q3 + (sigma_star - (3*E*d_e)/(2*nv + 2))**2/Y**2 + 2*f_star*q1*cosh((q2*(3*p_star &
+          + (3*E*d_epsilonv)/(6*nv - 3)))/(2*Y)) - 1)**(1/2)))*(((sigma_star - &
+          (3*E*d_e)/(2*nv + 2))**2/Y**2 - f_star**2*q3 + 2*f_star*q1*cosh((q2*(3*p_star + &
+          (3*E*d_epsilonv)/(6*nv - 3)))/(2*Y)) - 1)**(1/2))**m)/(- (sigma_star -&
+           (3*E*d_e)/(2*nv + 2))**2/(Y**4*(f_star**2*q3 - (sigma_star - (3*E*d_e)/(2*nv + &
+           2))**2/Y**2 - 2*f_star*q1*cosh((q2*(3*p_star + (3*E*d_epsilonv)/(6*nv - 3)))/(2*Y)) +&
+            1)) - (f_star**2*q1**2*q2**2*sinh((q2*(3*p_star + (3*E*d_epsilonv)/(6*nv - &
+            3)))/(2*Y))**2)/(2*Y**2*(f_star**2*q3 - (sigma_star - (3*E*d_e)/(2*nv + 2))**2/Y**2 -&
+             2*f_star*q1*cosh((q2*(3*p_star + (3*E*d_epsilonv)/(6*nv - 3)))/(2*Y)) + 1)))**(1/2)
+
+
+
+        dematrix=dematrix*dt*epsilon_0/(1.d0-vf)
+
+        vf=1.d0+(vf-1.d0)*(exp(-d_epsilonv))+((f_n*dematrix)/(s_n*sqrt(2.d0*pi)))* &
+          exp(-0.5d0*(((ematrix-epsilon_n)/s_n)**2))
+
+       ematrix=ematrix+dematrix
+
+
+
+        updated_state_variables(1:6)=stress1(1:6)
+        updated_state_variables(7)=ematrix
+        updated_state_variables(8)=vf
+
+        end if
+
+    write(IOW,*) ncount
+
+    end subroutine gurson
+
+
+
+
      subroutine calculate_stress_D(strain,element_properties,stress,D)
         use Types
         use ParamIO
@@ -125,13 +496,6 @@ contains
  !  write(IOW,*) D
 
     end subroutine calculate_stress_D
-
-
-
-
-
-
-
 
 
 
