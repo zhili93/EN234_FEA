@@ -171,9 +171,9 @@ contains
 
        beta=sqrt(dphi_dsigmae**2+(2.d0/9.d0)*(dphi_dp**2))
 
-      f1 =beta*(d_e/(dt*epsilon_0))-dphi_dsigmae*(phi**m)
+   !   f1 =beta*(d_e/(dt*epsilon_0))-dphi_dsigmae*(phi**m)
 
-      f2 =beta*(d_epsilonv/(dt*epsilon_0))-dphi_dp*(phi**m)
+    !  f2 =beta*(d_epsilonv/(dt*epsilon_0))-dphi_dp*(phi**m)
 !=================calculate derivatives=======================
 
         dphi_dsigmae_dsigmae = 1/(phi*Y*Y)-(sigma_e*dphi_dsigmae/(Y*Y*phi*phi))
@@ -188,6 +188,20 @@ contains
        dbeta_dsigmae=(dphi_dsigmae*dphi_dsigmae_dsigmae+2.d0*dphi_dp*dphi_dsigmae/9.d0)/beta
 
        dbeta_dp=(dphi_dsigmae*dphi_dp+2.d0*dphi_dp*dphi_dp_dp/9.d0)/beta
+
+
+      !  df1de=dbeta_dsigmae*dsigmae_de*(d_e/(dt*epsilon_0))+beta*(1.d0/(dt*epsilon_0))-&
+      !    dsigmae_de*(dphi_dsigmae_dsigmae*(phi**m)+m*(phi**(m-1))*(dphi_dsigmae**2))
+
+      !    df1depsilonv=dbeta_dp*dp_depsilonv*(d_e/(dt*epsilon_0))-dp_depsilonv*&
+      !    (dphi_dsigmae_dp*(phi**m)+m*(phi**(m-1))*dphi_dsigmae*dphi_dp)
+
+       !   df2de =dbeta_dsigmae*dsigmae_de*(d_epsilonv/(dt*epsilon_0))-dsigmae_de*(dphi_dp_dsigmae*(phi**m)+&
+       !   m*(phi*(m-1))*dphi_dsigmae*dphi_dp)
+
+       !   df2depsilonv =dbeta_dp*dp_depsilonv*(d_epsilonv/(dt*epsilon_0))+beta*(1.d0/(dt*epsilon_0))-&
+       !   dp_depsilonv*(dphi_dp_dp*(phi**m)+m*(phi*(m-1))*(dphi_dp**2))
+
 
           f1 = (d_e*(- (sigma_star - (3.d0*E*d_e)/(2.d0*nv + 2.d0))**2/((Y**4)*((f_star**2)*q3 - &
        (sigma_star - (3.d0*E*d_e)/(2.d0*nv + 2.d0))**2/(Y**2) - 2.d0*f_star*q1*cosh((q2*(3.d0*p_star +&
