@@ -65,7 +65,10 @@ contains
         real (prec)  :: deriva(2,2),incre(2,1),resid(2,1),target(2,1)
         real (prec)  :: d_e,d_epsilonv,f1,f2,df1de,df1depsilonv,df2de,df2depsilonv,dt,sigma_star
         real (prec)  :: deriva_i(2,2),deriva_det
-
+        real (prec)  :: sigma_e, p,dphi_dsigmae,dphi_dp,beta,dbeta_dsigmae,dbeta_dp
+        real (prec)  :: dphi_dsigmae_dsigmae,dphi_dsigmae_dp
+        real (prec)  :: dphi_dp_dsigmae, dphi_dp_dp
+        real (prec)  :: dsigmae_de,dp_depsilonv
        ! initial state variables
         stress0(1:6)=initial_state_variables(1:6)
         ematrix=initial_state_variables(7)
@@ -106,20 +109,21 @@ contains
         estress0_m=stress0_m-(sum(stress0(1:3))/3.d0)*I
         destrain=dstrain-((dstrain(1,1)+dstrain(2,2)+dstrain(3,3))/3.d0)*I
         S_star=(E/(1.d0+nv))*destrain+matmul(dRot,matmul(estress0_m,transpose(dRot)))
+        sigma_estar=sqrt((3.d0*(S_star(1,1)**2+S_star(2,2)**2+S_star(3,3)**2+ &
+        2.d0*(S_star(1,2)**2+S_star(2,3)**2+S_star(1,3)**2)))/2.d0)
        !========update state variables=========
  !===============calculate f_star===============================
         if(vf<f_c) then
         f_star=vf
         else if(vf>f_c.AND.vf<f_f) then
         f_f_bar=(q1+sqrt(q1*q1-q3))/q3
-        f_star=f_c+((f_f_bar-f_c)*(vf-f_c))/(f_f-f_c)
+        f_star=f_c+(f_f_bar-f_c)*(vf-f_c)/(f_f-f_c)
         else if(vf>f_f) then
         f_f_bar=(q1+sqrt(q1*q1-q3))/q3
         f_star=f_f_bar
         end if
 
-        sigma_estar=sqrt((3.d0*(S_star(1,1)**2+S_star(2,2)**2+S_star(3,3)**2+ &
-        2.d0*(S_star(1,2)**2+S_star(2,3)**2+S_star(1,3)**2)))/2.d0)
+
         phi0=(sigma_estar/Y)**2+2.d0*q1*f_star*cosh(3.d0*q2*p_star/(2.d0*Y))-(1+q3*f_star*f_star)
 
         if(phi0<0.0000000000001d0) then
@@ -154,7 +158,38 @@ contains
         d_e=target(1,1)
         d_epsilonv=target(2,1)
 
-       f1 = (d_e*(- (sigma_star - (3.d0*E*d_e)/(2.d0*nv + 2.d0))**2/((Y**4)*((f_star**2)*q3 - &
+       sigma_e=sigma_estar-3.d0*E*d_e/(2.d0*(1+nv))
+       p=p_star-E*d_epsilonv/(3*(1.d0-2.d0*nv))
+       dsigmae_de=-3.d0*E/(2.d0*(1+nv))
+       dp_depsilonv=-E/(3.d0*(1.d0-2.d0*nv))
+
+       phi=sqrt((sigma_e/Y)**2+2.d0*q1*f_star*cosh(3.d0*q2*p/(2.d0*Y))-(1+q3*f_star*f_star))
+!===================calculate f1 f2==================
+       dphi_dsigmae=sigma_e/(Y*Y*phi)
+
+       dphi_dp=((3*f_star*q1*q2*sinh((3*p*q2)/(2*Y)))/(2*Y))/phi
+
+       beta=sqrt(dphi_dsigmae**2+(2.d0/9.d0)*(dphi_dp**2))
+
+      f1 =beta*(d_e/(dt*epsilon_0))-dphi_dsigmae*(phi**m)
+
+      f2 =beta*(d_epsilonv/(dt*epsilon_0))-dphi_dp*(phi**m)
+!=================calculate derivatives=======================
+
+        dphi_dsigmae_dsigmae = 1/(phi*Y*Y)-(sigma_e*dphi_dsigmae/(Y*Y*phi*phi))
+
+        dphi_dsigmae_dp =-sigma_e*dphi_dp/(Y*Y*phi*phi)
+
+        dphi_dp_dsigmae =-sigma_e*dphi_dp/(Y*Y*phi*phi)
+
+        dphi_dp_dp =((3.d0*q2)**2)*f_star*q1*cosh((3*p*q2)/(2*Y))/(4.d0*Y*Y*phi)-&
+        ((3*f_star*q1*q2*sinh((3*p*q2)/(2*Y)))/(2*Y))*dphi_dp/(phi*phi)
+
+       dbeta_dsigmae=(dphi_dsigmae*dphi_dsigmae_dsigmae+2.d0*dphi_dp*dphi_dsigmae/9.d0)/beta
+
+       dbeta_dp=(dphi_dsigmae*dphi_dp+2.d0*dphi_dp*dphi_dp_dp/9.d0)/beta
+
+          f1 = (d_e*(- (sigma_star - (3.d0*E*d_e)/(2.d0*nv + 2.d0))**2/((Y**4)*((f_star**2)*q3 - &
        (sigma_star - (3.d0*E*d_e)/(2.d0*nv + 2.d0))**2/(Y**2) - 2.d0*f_star*q1*cosh((q2*(3.d0*p_star +&
         (3.d0*E*d_epsilonv)/(6.d0*nv - 3.d0)))/(2.d0*Y)) + 1.d0)) - &
         ((f_star**2)*(q1**2)*(q2**2)*sinh((q2*(3.d0*p_star + (3.d0*E*d_epsilonv)/(6.d0*nv -&
@@ -340,6 +375,7 @@ contains
                 (3.d0*E*d_epsilonv)/(6.d0*nv - 3.d0)))/(2.d0*Y)) + 1.d0))
 
 
+
           deriva(1,1)=df1de
           deriva(1,2)=df1depsilonv
           deriva(2,1)=df2de
@@ -348,10 +384,12 @@ contains
           resid(1,1)=-f1
           resid(2,1)=-f2
 
+
          call invert_small(deriva,deriva_i,deriva_det)
          incre=matmul(deriva_i,resid)
          target=target+incre
          ncount=ncount+1
+
 
         enddo
 
@@ -367,39 +405,44 @@ contains
         stress1(4)=stress1_m(1,2)
         stress1(5)=stress1_m(1,3)
         stress1(6)=stress1_m(2,3)
+!=======================calculate d_ematrix===================
+       sigma_e=sigma_estar-3.d0*E*d_e/(2.d0*(1+nv))
+       p=p_star-E*d_epsilonv/(3*(1.d0-2.d0*nv))
+       phi=sqrt((sigma_e/Y)**2+2.d0*q1*f_star*cosh(3.d0*q2*p/(2.d0*Y))-(1+q3*f_star*f_star))
+       dphi_dsigmae=sigma_e/(Y*Y*phi)
+       dphi_dp=((3*f_star*q1*q2*sinh((3*p*q2)/(2*Y)))/(2*Y))/phi
+       beta=sqrt(dphi_dsigmae**2+(2.d0/9.d0)*(dphi_dp**2))
+       !dematrix =(epsilon_0*dt/(1.d0-vf))*(phi**m)*(dphi_dsigmae*sigma_e+dphi_dp*p/3.d0)/beta
+        dematrix =(((sigma_star - (3.d0*E*d_e)/(2.d0*nv + 2.d0))**2/((Y**2)*(- (f_star**2)*q3 +&
+ (sigma_star - (3.d0*E*d_e)/(2.d0*nv + 2.d0))**2/(Y**2) + 2.d0*f_star*q1*cosh((q2*(3.d0*p_star + &
+ (3.d0*E*d_epsilonv)/(6.d0*nv - 3.d0)))/(2.d0*Y)) - 1.d0)**(0.5d0)) + (f_star*q1*q2*sinh((q2*(3.d0*p_star &
+ + (3.d0*E*d_epsilonv)/(6.d0*nv - 3.d0)))/(2.d0*Y))*(p_star + (E*d_epsilonv)/(6.d0*nv - &
+ 3.d0)))/(2.d0*Y*(- (f_star**2)*q3 + (sigma_star - (3.d0*E*d_e)/(2.d0*nv + 2.d0))**2/(Y**2) +&
+  2.d0*f_star*q1*cosh((q2*(3.d0*p_star + (3.d0*E*d_epsilonv)/(6.d0*nv - 3.d0)))/(2.d0*Y)) - &
+  1.d0)**(0.5d0)))*(((sigma_star - (3.d0*E*d_e)/(2.d0*nv + 2.d0))**2/(Y**2) - (f_star**2)*q3 +&
+   2.d0*f_star*q1*cosh((q2*(3.d0*p_star + (3.d0*E*d_epsilonv)/(6.d0*nv - 3.d0)))/(2.d0*Y)) - &
+    1.d0)**(0.5d0))**m)/(- (sigma_star - (3.d0*E*d_e)/(2.d0*nv + 2.d0))**2/((Y**4)*((f_star**2)*q3 - &
+    (sigma_star - (3.d0*E*d_e)/(2.d0*nv + 2.d0))**2/(Y**2) - 2.d0*f_star*q1*cosh((q2*(3.d0*p_star + &
+    (3.d0*E*d_epsilonv)/(6.d0*nv - 3.d0)))/(2.d0*Y)) + 1.d0)) - &
+    ((f_star**2)*(q1**2)*(q2**2)*sinh((q2*(3.d0*p_star + (3.d0*E*d_epsilonv)/(6.d0*nv - &
+    3.d0)))/(2.d0*Y))**2)/(2.d0*(Y**2)*((f_star**2)*q3 - (sigma_star - (3.d0*E*d_e)/(2.d0*nv + &
+    2.d0))**2/(Y**2) - 2.d0*f_star*q1*cosh((q2*(3.d0*p_star + (3.d0*E*d_epsilonv)/(6.d0*nv - &
+    3.d0)))/(2.d0*Y)) + 1.d0)))**(0.5d0)
 
-        dematrix =(((sigma_star - (3*E*d_e)/(2*nv + 2))**2/(Y**2*(- f_star**2*q3 + &
-        (sigma_star - (3*E*d_e)/(2*nv + 2))**2/Y**2 + 2*f_star*q1*cosh((q2*(3*p_star +&
-         (3*E*d_epsilonv)/(6*nv - 3)))/(2*Y)) - 1)**(1/2)) + (f_star*q1*q2*sinh((q2*(3*p_star &
-         + (3*E*d_epsilonv)/(6*nv - 3)))/(2*Y))*(p_star + (E*d_epsilonv)/(6*nv - 3)))/(2*Y*(-&
-          f_star**2*q3 + (sigma_star - (3*E*d_e)/(2*nv + 2))**2/Y**2 + 2*f_star*q1*cosh((q2*(3*p_star &
-          + (3*E*d_epsilonv)/(6*nv - 3)))/(2*Y)) - 1)**(1/2)))*(((sigma_star - &
-          (3*E*d_e)/(2*nv + 2))**2/Y**2 - f_star**2*q3 + 2*f_star*q1*cosh((q2*(3*p_star + &
-          (3*E*d_epsilonv)/(6*nv - 3)))/(2*Y)) - 1)**(1/2))**m)/(- (sigma_star -&
-           (3*E*d_e)/(2*nv + 2))**2/(Y**4*(f_star**2*q3 - (sigma_star - (3*E*d_e)/(2*nv + &
-           2))**2/Y**2 - 2*f_star*q1*cosh((q2*(3*p_star + (3*E*d_epsilonv)/(6*nv - 3)))/(2*Y)) +&
-            1)) - (f_star**2*q1**2*q2**2*sinh((q2*(3*p_star + (3*E*d_epsilonv)/(6*nv - &
-            3)))/(2*Y))**2)/(2*Y**2*(f_star**2*q3 - (sigma_star - (3*E*d_e)/(2*nv + 2))**2/Y**2 -&
-             2*f_star*q1*cosh((q2*(3*p_star + (3*E*d_epsilonv)/(6*nv - 3)))/(2*Y)) + 1)))**(1/2)
-
-
-
-        dematrix=dematrix*dt*epsilon_0/(1.d0-vf)
-
-        vf=1.d0+(vf-1.d0)*(exp(-d_epsilonv))+((f_n*dematrix)/(s_n*sqrt(2.d0*pi)))* &
-          exp(-0.5d0*(((ematrix-epsilon_n)/s_n)**2))
+    dematrix=(epsilon_0*dt/(1.d0-vf))*dematrix
+!===============update vf ematrix===============================
+        vf=1.d0+(vf-1.d0)*(exp(-d_epsilonv))+&
+        ((f_n*dematrix)/(s_n*sqrt(2.d0*pi)))*exp(-0.5d0*(((ematrix-epsilon_n)/s_n)**2))
 
        ematrix=ematrix+dematrix
-
-
-
+!===================update updated_state_variables==================
         updated_state_variables(1:6)=stress1(1:6)
         updated_state_variables(7)=ematrix
         updated_state_variables(8)=vf
 
         end if
 
-    write(IOW,*) ncount
+   ! write(IOW,*) ncount
 
     end subroutine gurson
 

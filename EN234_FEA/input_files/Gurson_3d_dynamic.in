@@ -116,9 +116,9 @@
 %        All parameters are required
 
           TIME STEP, 0.01
-          NUMBER OF STEPS, 10
-          STATE PRINT STEPS, 1
-          USER PRINT STEPS, 1
+          NUMBER OF STEPS, 200
+          STATE PRINT STEPS, 10
+          USER PRINT STEPS, 210
 
 
 %      This prints the DOF values and projected nodal state for all solid elements to a tecplot readable file

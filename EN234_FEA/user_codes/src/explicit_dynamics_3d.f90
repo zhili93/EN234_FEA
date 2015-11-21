@@ -72,7 +72,7 @@ subroutine explicit_dynamics_3d(lmn, element_identifier, n_nodes, node_property_
 
     !     element_properties(1)         Young's modulus
     !     element_properties(2)         Poisson's ratio
-    element_deleted  = .false.
+
     
     x = reshape(element_coords,(/3,length_coord_array/3/))
 
@@ -193,10 +193,10 @@ subroutine explicit_dynamics_3d(lmn, element_identifier, n_nodes, node_property_
        !write(IOW,*) el_updated_state_variables
        !write(IOW,*) dR
     end do
-
-    if(failure_count==n_points) then
-    element_deleted  = .true.
-    end if
+         write(IOW,*) element_deleted
+        if(failure_count==n_points) then
+         element_deleted =.true.
+         end if
 
     return
 
