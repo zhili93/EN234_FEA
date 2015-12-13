@@ -80,16 +80,16 @@ subroutine el_linelast_2dbeam(lmn, element_identifier, n_nodes, node_property_li
     x = reshape(element_coords,(/2,length_coord_array/2/))
    ! four nodes parenent element
     np_nodes = 4
-    n_points = 4
+   ! n_points = 4
 
    ! write(IOW,*) 'coords'
    ! write(IOW,*)  x
 
-    call initialize_integration_points(n_points, np_nodes, xi, w)
+   ! call initialize_integration_points(n_points, np_nodes, xi, w)
 
     element_residual = 0.d0
     element_stiffness = 0.d0
-	
+
     D = 0.d0
     h=element_properties(1)
     k=element_properties(2)
@@ -108,9 +108,9 @@ subroutine el_linelast_2dbeam(lmn, element_identifier, n_nodes, node_property_li
     theta2=dof_total(6)+dof_increment(6)
     ! theta1=0.d0
     !  theta2=0.d0
-    write(IOW,*) 'displacement'
-    write(IOW,*)  dof_total
-    write(IOW,*)  dof_increment
+    !write(IOW,*) 'displacement'
+    !write(IOW,*)  dof_total
+   ! write(IOW,*)  dof_increment
     x_slave(1,1)=x(1,1)+0.5*h*sin(theta1)
     x_slave(2,1)=x(2,1)-0.5*h*cos(theta1)
     x_slave(1,4)=x(1,1)-0.5*h*sin(theta1)
@@ -152,12 +152,15 @@ subroutine el_linelast_2dbeam(lmn, element_identifier, n_nodes, node_property_li
    T(5,6)=x(2,2)-x_slave(2,3)
    T(6,5)=1.d0
    T(6,6)=-x(1,2)+x_slave(1,3)
-   ! write(IOW,*) 'slave'
-   ! write(IOW,*)  x_slave
-   ! write(IOW,*) 'transform'
-   ! write(IOW,*)  T
-   !write(IOW,*) 'coord'
-   !write(IOW,*)  dof_total+dof_increment
+
+
+   !=============define 5 points Trapezoidal rule=============
+   n_points = 5
+   do kint=1, n_points
+       xi(1,kint)=0
+       xi(2,kint)=-1.d0+(kint-1)*0.5d0
+   end do
+
    !================== calculate stiffness matix====================
 
     !     --  Loop over integration points
@@ -181,11 +184,11 @@ subroutine el_linelast_2dbeam(lmn, element_identifier, n_nodes, node_property_li
         e2(2,1)=e1(1,1)
         R=0.d0
         R(1,1)=e1(1,1)**2
-        R(1,2)=e2(2,1)**2
+        R(1,2)=e2(1,1)**2
         R(1,3)=e1(1,1)*e1(2,1)
         R(2,1)=e1(1,1)*e2(1,1)
         R(2,2)=e1(2,1)*e2(2,1)
-        R(2,3)=0.5d0*(e1(1,1)*e2(2,1)+e1(2,1)*e2(1,1))
+        R(2,3)=(e1(1,1)*e2(2,1)+e1(2,1)*e2(1,1))
 
         !==========calculate stiffness and residual======
 
@@ -194,28 +197,36 @@ subroutine el_linelast_2dbeam(lmn, element_identifier, n_nodes, node_property_li
       
         stress = matmul(D,matmul(R,strain+dstrain))
         B_equal=matmul(R,matmul(B,T))
+
+        if( kint==1 .OR. kint==5) then
         element_residual(1:3*n_nodes) = element_residual(1:3*n_nodes) - &
-        matmul(transpose(B_equal),stress)*w(kint)*determinant*k
+        matmul(transpose(B_equal),stress)*determinant*k
 
         element_stiffness(1:3*n_nodes,1:3*n_nodes) = element_stiffness(1:3*n_nodes,1:3*n_nodes) &
-            + matmul(transpose(B_equal),matmul(D,B_equal))*w(kint)*determinant*k
-    !write(IOW,*) 'stress'
-    !write(IOW,*)  stress
-    !write(IOW,*) 'e1'
-    !write(IOW,*)  e1
-    !write(IOW,*) 'rotation'
-    !write(IOW,*)  R
+            + matmul(transpose(B_equal),matmul(D,B_equal))*determinant*k
+        else
+         element_residual(1:3*n_nodes) = element_residual(1:3*n_nodes) - &
+        2.d0*matmul(transpose(B_equal),stress)*determinant*k
+
+        element_stiffness(1:3*n_nodes,1:3*n_nodes) = element_stiffness(1:3*n_nodes,1:3*n_nodes) &
+            + 2.d0*matmul(transpose(B_equal),matmul(D,B_equal))*determinant*k
+
+        end if
+
 
     end do
    ! write(IOW,*) 'element_residual'
    ! write(IOW,*)  element_residual
-    !write(IOW,*) 'stiffness'
+   element_stiffness=element_stiffness*0.5d0
+    element_residual=element_residual*0.5d0
+   ! write(IOW,*) 'stiffness'
    ! write(IOW,*)  element_stiffness
-   ! write(IOW,*) 'dof'
-   ! write(IOW,*)  dof_total+dof_increment
+
   
     return
 end subroutine el_linelast_2dbeam
+
+
 
 
 !==========================SUBROUTINE el_linelast_3dbasic_dynamic ==============================
