@@ -135,6 +135,12 @@ subroutine el_linelast_3Dbeam(lmn, element_identifier, n_nodes, node_property_li
       x_slave(1,6)=x(1,3)+0.5d0*h*cos(theta(1,3))*sin(theta(2,3))
       x_slave(2,6)=x(2,3)-0.5d0*h*sin(theta(1,3))
       x_slave(3,6)=x(3,3)-0.5d0*h*cos(theta(1,3))*cos(theta(2,3))
+      !  write(IOW,*) 'dof number'
+      !  write(IOW,*)  length_dof_array
+      !  write(IOW,*) 'master'
+      !!  write(IOW,*)  x
+      !  write(IOW,*) 'slave'
+      !  write(IOW,*)  x_slave
 
       T=0.d0
 
@@ -204,7 +210,7 @@ subroutine el_linelast_3Dbeam(lmn, element_identifier, n_nodes, node_property_li
     !     --  Loop over integration points
     do kint = 1, n_points
         call calculate_shapefunctions(xi(1:3,kint),np_nodes,N,dNdxi)
-        dxdxi = matmul(x(1:3,1:np_nodes),dNdxi(1:np_nodes,1:3))
+        dxdxi = matmul(x_slave(1:3,1:np_nodes),dNdxi(1:np_nodes,1:3))
         call invert_small(dxdxi,dxidx,determinant)
         dNdx(1:np_nodes,1:3) = matmul(dNdxi(1:np_nodes,1:3),dxidx)
 
@@ -221,21 +227,21 @@ subroutine el_linelast_3Dbeam(lmn, element_identifier, n_nodes, node_property_li
 
         !=========calculate rotation matrix R===========
 
-        e1(1:3,1)=matmul(x_slave(1:3,1:8),dNdxi(1:8,1))
-        e2(1:3,1)=matmul(x_slave(1:3,1:8),dNdxi(1:8,2))
+        e1(1:3,1)=matmul(x_slave(1:3,1:8),dNdxi(1:8,3))
+        e2(1:3,1)=matmul(x_slave(1:3,1:8),dNdxi(1:8,1))
         e3(1,1)=e1(2,1)*e2(3,1)-e1(3,1)*e2(2,1)
         e3(2,1)=-(e1(1,1)*e2(3,1)-e1(3,1)*e2(1,1))
         e3(3,1)=e1(1,1)*e2(2,1)-e1(2,1)*e2(1,1)
         e3=e3/sqrt(e3(1,1)**2+e3(2,1)**2+e3(3,1)**2)
 
-       ! a1=(e1/sqrt(e1(1,1)**2+e1(2,1)**2+e1(3,1)**2))+(e2/sqrt(e2(1,1)**2+e2(2,1)**2+e2(3,1)**2))
-       ! b1(1,1)=e3(2,1)*a1(3,1)-e3(3,1)*a1(2,1)
-       ! b1(2,1)=-(e3(1,1)*a1(3,1)-e3(3,1)*a1(1,1))
-       ! b1(3,1)=e3(1,1)*a1(2,1)-e3(2,1)*a1(1,1)
+        a1=(e1/sqrt(e1(1,1)**2+e1(2,1)**2+e1(3,1)**2))+(e2/sqrt(e2(1,1)**2+e2(2,1)**2+e2(3,1)**2))
+        b1(1,1)=e3(2,1)*a1(3,1)-e3(3,1)*a1(2,1)
+        b1(2,1)=-(e3(1,1)*a1(3,1)-e3(3,1)*a1(1,1))
+        b1(3,1)=e3(1,1)*a1(2,1)-e3(2,1)*a1(1,1)
 
-        !e1=a1-b1
+        e1=a1-b1
         e1=e1/sqrt(e1(1,1)**2+e1(2,1)**2+e1(3,1)**2)
-       ! e2=a1+b1
+        e2=a1+b1
         e2=e2/sqrt(e2(1,1)**2+e2(2,1)**2+e2(3,1)**2)
 
         R(1,1)=e1(1,1)**2
@@ -274,8 +280,8 @@ subroutine el_linelast_3Dbeam(lmn, element_identifier, n_nodes, node_property_li
         R(6,4)=e2(1,1)*e3(2,1)+e2(2,1)*e3(1,1)
         R(6,5)=e2(1,1)*e3(3,1)+e2(3,1)*e3(1,1)
         R(6,6)=e2(2,1)*e3(3,1)+e2(3,1)*e3(2,1)
-        write(IOW,*) 'rotation'
-        write(IOW,*)  e1,e2,e3
+       ! write(IOW,*) 'rotation'
+        !write(IOW,*)  R
 
 
         strain = matmul(B,matmul(T,dof_total))
@@ -283,13 +289,13 @@ subroutine el_linelast_3Dbeam(lmn, element_identifier, n_nodes, node_property_li
 
         stress = matmul(D,matmul(R,strain+dstrain))
         B_equal=matmul(R,matmul(B,T))
-        write(IOW,*) 'stress'
-        write(IOW,*)  stress
-        element_residual(1:3*n_nodes) = element_residual(1:3*n_nodes) - &
+        !write(IOW,*) 'stress'
+        !write(IOW,*)  stress
+        element_residual(1:5*n_nodes) = element_residual(1:5*n_nodes) - &
         matmul(transpose(B_equal),stress)*determinant*w(kint)
 
-        element_stiffness(1:3*n_nodes,1:3*n_nodes) = element_stiffness(1:3*n_nodes,1:3*n_nodes) &
-            + matmul(transpose(B_equal),matmul(D,B_equal))*w(kint)
+        element_stiffness(1:5*n_nodes,1:5*n_nodes) = element_stiffness(1:5*n_nodes,1:5*n_nodes) &
+            + matmul(transpose(B_equal),matmul(D,B_equal))*w(kint)*determinant
 
     end do
 
